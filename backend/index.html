@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<script>
+  // Set the theme before first paint (no flash): saved choice, else the system setting, else dark.
+  (function () {
+    var t = "dark";
+    try { t = localStorage.getItem("theme") || (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark"); } catch (e) {}
+    document.documentElement.setAttribute("data-theme", t === "light" ? "light" : "dark");
+  })();
+</script>
+<title>Is this SMS spam?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #070a08;
+    --panel: #0e1310;
+    --panel-2: #131a15;
+    --line: #1e2a22;
+    --line-2: #2a3a2f;
+    --text: #e9f3ec;
+    --muted: #8b9c91;
+    --green: #35e58f;
+    --green-dim: #0f3a28;
+    --green-glow: rgba(53, 229, 143, .35);
+    --red: #ff5a6a;
+    --red-dim: #3d141b;
+    --on-green: #04130b;
+    --bubble: #1a231d;
+    --placeholder: #5f6f65;
+    --dot-grid: rgba(255, 255, 255, .045);
+    --bg-glow: rgba(53, 229, 143, .13);
+    --red-glow: rgba(255, 90, 106, .4);
+    --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+    --body: "DM Sans", "Segoe UI", system-ui, sans-serif;
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #f3f8f5;
+    --panel: #ffffff;
+    --panel-2: #eef5f0;
+    --line: #dbe6df;
+    --line-2: #c4d5ca;
+    --text: #0b1510;
+    --muted: #55695c;
+    --green: #087f47;
+    --green-dim: #d6f2e3;
+    --green-glow: rgba(8, 127, 71, .28);
+    --red: #c9253f;
+    --red-dim: #fde2e6;
+    --on-green: #ffffff;
+    --bubble: #e7f0ea;
+    --placeholder: #8a9b90;
+    --dot-grid: rgba(0, 0, 0, .05);
+    --bg-glow: rgba(8, 127, 71, .10);
+    --red-glow: rgba(201, 37, 63, .3);
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; min-height: 100vh; color: var(--text); background: var(--bg);
+    font: 16px/1.55 var(--body);
+    background-image:
+      radial-gradient(46rem 24rem at 8% -6rem, var(--bg-glow), transparent 70%),
+      radial-gradient(var(--dot-grid) 1px, transparent 1px);
+    background-size: auto, 26px 26px;
+  }
+
+  .top { max-width: 1180px; margin: 0 auto; padding: 22px 20px 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .brand { display: flex; align-items: center; gap: 10px; font: 800 1.15rem/1 var(--display); letter-spacing: -0.01em; }
+  .logo { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: var(--green); color: var(--on-green); }
+  .actions { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .theme { width: 38px; height: 38px; flex: none; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--line-2); background: var(--panel); color: var(--text); padding: 0; transition: border-color .15s; }
+  .theme:hover { border-color: var(--green); }
+  :root[data-theme="dark"] .ico-moon, :root[data-theme="light"] .ico-sun { display: none; }
+  .pill { display: inline-flex; align-items: center; gap: 8px; font-size: .85rem; color: var(--muted); border: 1px solid var(--line-2); background: var(--panel); border-radius: 999px; padding: 6px 14px; max-width: 100%; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+  .dot.ok { background: var(--green); box-shadow: 0 0 10px var(--green-glow); }
+  .dot.bad { background: var(--red); }
+
+  .grid { max-width: 1180px; margin: 0 auto; padding: 36px 20px 72px; display: grid; gap: 28px; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); align-items: start; }
+  @media (max-width: 900px) { .grid { grid-template-columns: minmax(0, 1fr); padding-top: 26px; } }
+
+  h1 { font: 800 clamp(2.2rem, 5vw, 3.4rem)/1.02 var(--display); letter-spacing: -0.03em; margin: 0 0 14px; }
+  h1 em { font-style: normal; color: var(--green); }
+  .lede { color: var(--muted); font-size: 1.05rem; max-width: 46ch; margin: 0 0 18px; }
+  .tags { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 24px; padding: 0; list-style: none; }
+  .tags li { font-size: .82rem; color: var(--muted); border: 1px solid var(--line-2); border-radius: 8px; padding: 3px 10px; background: var(--panel); }
+
+  /* composer */
+  .composer { background: var(--panel); border: 1px solid var(--line-2); border-radius: 20px; padding: 14px; transition: border-color .15s, box-shadow .15s; }
+  .composer:focus-within { border-color: var(--green); box-shadow: 0 0 0 4px rgba(53, 229, 143, .12); }
+  textarea { width: 100%; min-height: 120px; resize: vertical; border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; font-size: 1.05rem; line-height: 1.55; padding: 6px; }
+  textarea::placeholder { color: var(--placeholder); }
+  .bar { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+  .count { margin-left: auto; color: var(--muted); font-size: .85rem; font-variant-numeric: tabular-nums; }
+  button { font: inherit; cursor: pointer; }
+  .send { display: inline-flex; align-items: center; gap: 9px; background: var(--green); color: var(--on-green); border: 0; border-radius: 12px; padding: 10px 20px; font-weight: 700; box-shadow: 0 6px 24px -8px var(--green-glow); transition: transform .1s, filter .15s; }
+  .send:hover:not(:disabled) { filter: brightness(1.08); }
+  .send:active:not(:disabled) { transform: translateY(1px); }
+  .send:disabled { opacity: .7; cursor: progress; }
+  .spin { width: 14px; height: 14px; border: 2px solid color-mix(in srgb, var(--on-green) 30%, transparent); border-top-color: var(--on-green); border-radius: 50%; animation: spin .7s linear infinite; display: none; }
+  .send:disabled .spin { display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .ghost { background: transparent; border: 0; color: var(--muted); padding: 10px 10px; border-radius: 10px; }
+  .ghost:hover { color: var(--text); background: var(--panel-2); }
+  :is(button, textarea, a):focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+
+  .try { margin-top: 20px; }
+  .try p { margin: 0 0 10px; color: var(--muted); font-size: .9rem; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { display: inline-flex; align-items: center; gap: 8px; background: var(--panel); color: var(--text); border: 1px solid var(--line-2); border-radius: 10px; padding: 6px 12px; font-size: .9rem; transition: border-color .15s, background .15s; }
+  .chip:hover { border-color: var(--green); background: var(--panel-2); }
+  .chip i { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+  .chip.s i { background: var(--red); }
+
+  .notice { display: none; margin-top: 18px; padding: 12px 16px; border-radius: 12px; background: var(--red-dim); border: 1px solid var(--red); color: var(--text); font-size: .95rem; }
+
+  /* results panel */
+  .panel { background: linear-gradient(180deg, var(--panel-2), var(--panel)); border: 1px solid var(--line-2); border-radius: 24px; padding: 26px; position: sticky; top: 20px; transition: opacity .2s; }
+  @media (max-width: 900px) { .panel { position: static; padding: 20px; } }
+  .panel.busy { opacity: .55; }
+  .empty { padding: 28px 4px; color: var(--muted); }
+  .empty h2 { font: 700 1.25rem/1.2 var(--display); color: var(--text); margin: 14px 0 6px; }
+  .empty p { margin: 0; max-width: 40ch; }
+  .ghost-meter { margin-top: 26px; height: 14px; border-radius: 999px; background: linear-gradient(90deg, var(--green-dim) 0 50%, var(--red-dim) 50%); opacity: .7; }
+
+  .thread { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin-bottom: 22px; }
+  .bubble { max-width: 100%; background: var(--bubble); border: 1px solid var(--line-2); padding: 12px 18px; border-radius: 18px 18px 18px 5px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .thread small { color: var(--muted); margin-left: 6px; }
+  .summary { font: 700 1.3rem/1.25 var(--display); letter-spacing: -0.01em; margin: 0 0 6px; max-width: 32ch; }
+
+  .row { padding: 22px 0 6px; border-top: 1px solid var(--line); margin-top: 18px; }
+  .row-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin-bottom: 18px; }
+  .row-head h3 { font: 700 1.1rem/1.2 var(--display); margin: 0; }
+  .row-head span { color: var(--muted); font-size: .9rem; }
+  .grade { margin-left: auto; font-size: .82rem; font-weight: 700; padding: 2px 10px; border-radius: 999px; }
+  .grade.right { background: var(--green-dim); color: var(--green); }
+  .grade.wrong { background: var(--red-dim); color: var(--red); }
+
+  .track { position: relative; height: 14px; border-radius: 999px; background: linear-gradient(90deg, var(--green-dim) 0 50%, var(--red-dim) 50% 100%); }
+  .track::after { content: ""; position: absolute; left: 50%; top: -5px; bottom: -5px; width: 2px; background: var(--line-2); }
+  .needle { position: absolute; top: 50%; left: 50%; width: 26px; height: 26px; border-radius: 50%; transform: translate(-50%, -50%); background: var(--green); border: 4px solid var(--bg); box-shadow: 0 0 0 1.5px var(--green), 0 0 22px var(--green-glow); transition: left .7s cubic-bezier(.2, .8, .2, 1), background .3s, box-shadow .3s; z-index: 1; }
+  .needle.spam { background: var(--red); box-shadow: 0 0 0 1.5px var(--red), 0 0 22px var(--red-glow); }
+  .ends { display: flex; justify-content: space-between; color: var(--muted); font-size: .85rem; margin-top: 10px; }
+
+  .verdict { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 16px; margin-top: 14px; }
+  .tag { display: inline-flex; align-items: center; gap: 8px; font: 800 1.1rem/1 var(--display); padding: 9px 14px 9px 11px; border-radius: 12px; }
+  .tag.ham { background: var(--green-dim); color: var(--green); }
+  .tag.spam { background: var(--red-dim); color: var(--red); }
+  .nums { color: var(--muted); font-size: .88rem; font-variant-numeric: tabular-nums; }
+
+  .hidden { display: none !important; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  @media (prefers-reduced-motion: reduce) { .needle, .composer, .panel, .spin { transition: none; animation: none; } }
+  @media (max-width: 520px) { .grade { margin-left: 0; } .top { flex-wrap: wrap; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <span class="logo" aria-hidden="true">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z"/><path d="M8.5 12l2.5 2.5L15.5 10"/></svg>
+    </span>
+    SMS filter
+  </div>
+  <div class="actions">
+    <div class="pill"><span class="dot" id="dot"></span><span id="status">Connecting to the server...</span></div>
+    <button class="theme" id="theme" type="button" aria-label="Switch to light theme" title="Switch theme">
+      <svg class="ico-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+      <svg class="ico-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+    </button>
+  </div>
+</header>
+
+<main class="grid">
+  <section>
+    <h1>Is this SMS <em>spam?</em></h1>
+    <p class="lede">Paste a message. The original Qwen model and our fine-tuned version each decide where it belongs: inbox or spam folder.</p>
+    <ul class="tags" aria-label="Project facts">
+      <li>Qwen2.5-0.5B</li><li>QLoRA, rank 16</li><li>UCI SMS Spam Collection</li>
+    </ul>
+
+    <form class="composer" id="form" autocomplete="off">
+      <label class="sr" for="text">SMS message</label>
+      <textarea id="text" maxlength="2000" placeholder="Type or paste an SMS message..."></textarea>
+      <div class="bar">
+        <button class="send" id="go" type="submit"><span class="spin" aria-hidden="true"></span><span id="gotext">Check message</span></button>
+        <button class="ghost" id="clear" type="button">Clear</button>
+        <span class="count" id="count">0 / 2000</span>
+      </div>
+    </form>
+
+    <div class="try">
+      <p>Or try an example</p>
+      <div class="chips" id="examples"></div>
+    </div>
+    <div class="notice" id="notice" role="alert"></div>
+  </section>
+
+  <section class="panel" id="panel" aria-live="polite">
+    <div class="empty" id="empty">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      <h2>Nothing checked yet</h2>
+      <p>Pick an example or paste your own message. Both models read it, and you see their answers side by side on the same scale.</p>
+      <div class="ghost-meter" aria-hidden="true"></div>
+    </div>
+
+    <div id="results" class="hidden">
+      <div class="thread">
+        <div class="bubble" id="bubble"></div>
+        <small id="expected"></small>
+      </div>
+      <p class="summary" id="summary"></p>
+
+      <div class="row" id="base">
+        <div class="row-head"><h3>Base model</h3><span>No spam training</span><span class="grade hidden" data-k="grade"></span></div>
+        <div role="img" data-k="meter">
+          <div class="track"><span class="needle" data-k="needle"></span></div>
+          <div class="ends"><span>Inbox</span><span>Spam folder</span></div>
+        </div>
+        <div class="verdict"><span class="tag" data-k="tag"></span><span class="nums" data-k="nums"></span></div>
+      </div>
+
+      <div class="row" id="ft">
+        <div class="row-head"><h3>Fine-tuned model</h3><span>Base + QLoRA adapter</span><span class="grade hidden" data-k="grade"></span></div>
+        <div role="img" data-k="meter">
+          <div class="track"><span class="needle" data-k="needle"></span></div>
+          <div class="ends"><span>Inbox</span><span>Spam folder</span></div>
+        </div>
+        <div class="verdict"><span class="tag" data-k="tag"></span><span class="nums" data-k="nums"></span></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+const EXAMPLES = [
+  {name: "Prize scam", label: "spam", text: "Congratulations! You've won a FREE iPhone. Text WIN to 80085 now to claim your prize. T&Cs apply."},
+  {name: "Bank phishing", label: "spam", text: "URGENT: Your bank account has been suspended. Verify now at http://secure-bank-login.example to avoid closure."},
+  {name: "Free entry", label: "spam", text: "Free entry in our weekly draw! Reply YES to 87121 to receive 5 pounds credit. 18+ only. Std charges apply."},
+  {name: "Dinner plans", label: "ham", text: "Hey, are we still meeting at 6 for dinner? I'll be a few minutes late."},
+  {name: "Milk", label: "ham", text: "Can you pick up some milk on your way home? Thanks!"},
+  {name: "Lecture notes", label: "ham", text: "Ok I'll call you after the lecture, send me the notes please."},
+];
+const ICON_OK = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+const ICON_BAD = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l10 18H2L12 3z"/><path d="M12 10v5M12 18v.01"/></svg>';
+
+const $ = (s, r = document) => r.querySelector(s);
+const text = $("#text"), go = $("#go"), panel = $("#panel");
+let expected = null;                       // known label when an example chip was used
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+for (const ex of EXAMPLES) {
+  const b = document.createElement("button");
+  b.type = "button"; b.className = "chip" + (ex.label === "spam" ? " s" : "");
+  b.innerHTML = "<i></i>"; b.append(ex.name);
+  b.title = "Example of " + ex.label;
+  b.onclick = () => { text.value = ex.text; expected = ex.label; updateCount(); check(); };
+  $("#examples").appendChild(b);
+}
+
+// ---- theme toggle (dark / light), remembered in this browser ----
+const root = document.documentElement, themeBtn = $("#theme");
+function syncThemeButton() {
+  const light = root.getAttribute("data-theme") === "light";
+  themeBtn.setAttribute("aria-label", light ? "Switch to dark theme" : "Switch to light theme");
+}
+themeBtn.onclick = () => {
+  const next = root.getAttribute("data-theme") === "light" ? "dark" : "light";
+  root.setAttribute("data-theme", next);
+  try { localStorage.setItem("theme", next); } catch (e) {}
+  syncThemeButton();
+};
+syncThemeButton();
+
+function updateCount() { $("#count").textContent = text.value.length + " / 2000"; }
+text.addEventListener("input", () => { expected = null; updateCount(); });
+text.addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); check(); } });
+$("#clear").onclick = () => {
+  text.value = ""; expected = null; updateCount();
+  $("#results").classList.add("hidden"); $("#empty").classList.remove("hidden"); text.focus();
+};
+$("#form").addEventListener("submit", (e) => { e.preventDefault(); check(); });
+
+function showRow(row, r) {
+  const pct = r.spam_probability * 100, spam = r.label === "spam";
+  const needle = $('[data-k="needle"]', row);
+  needle.classList.toggle("spam", spam);
+  const pos = Math.min(97, Math.max(3, pct));            // keep the marker inside the track
+  if (reduced) needle.style.left = pos + "%";
+  else { needle.style.left = "50%"; void needle.offsetWidth; needle.style.left = pos + "%"; }   // reflow, then slide to the result
+
+  const tag = $('[data-k="tag"]', row);
+  tag.className = "tag " + (spam ? "spam" : "ham");
+  tag.innerHTML = spam ? ICON_BAD : ICON_OK;
+  tag.append(spam ? "Goes to the spam folder" : "Stays in the inbox");
+  $('[data-k="nums"]', row).textContent = "Spam probability " + pct.toFixed(1) + "%, margin " + r.margin;
+  $('[data-k="meter"]', row).setAttribute("aria-label", (spam ? "Spam" : "Inbox") + ": spam probability " + pct.toFixed(1) + " percent");
+
+  const g = $('[data-k="grade"]', row);
+  if (expected) { const ok = r.label === expected; g.textContent = ok ? "Correct" : "Wrong"; g.className = "grade " + (ok ? "right" : "wrong"); }
+  else g.className = "grade hidden";
+}
+
+function summarise(d) {
+  if (!d.finetuned) return "Only the base model is loaded, so there is nothing to compare yet.";
+  const b = d.base.label, f = d.finetuned.label;
+  if (expected) {
+    const bOk = b === expected, fOk = f === expected;
+    if (bOk && fOk) return "Both models got this example right.";
+    if (!bOk && fOk) return "The base model got it wrong. The fine-tuned model got it right.";
+    if (bOk && !fOk) return "The fine-tuned model got this one wrong. The base model was right.";
+    return "Both models got this example wrong.";
+  }
+  if (b === f) return "Both models agree: " + (f === "spam" ? "spam." : "not spam.");
+  return "The models disagree. Base says " + b + ", fine-tuned says " + f + ".";
+}
+
+async function check() {
+  const msg = text.value.trim();
+  if (!msg) { text.focus(); return; }
+  $("#notice").style.display = "none";
+  go.disabled = true; $("#gotext").textContent = "Checking..."; panel.classList.add("busy");
+  try {
+    const res = await fetch("/predict", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({text: msg}) });
+    if (!res.ok) throw new Error("The server answered with an error (" + res.status + ").");
+    const d = await res.json();
+    $("#bubble").textContent = msg;
+    $("#expected").textContent = expected ? "Example of " + expected : "";
+    $("#summary").textContent = summarise(d);
+    showRow($("#base"), d.base);
+    $("#ft").classList.toggle("hidden", !d.finetuned);
+    if (d.finetuned) showRow($("#ft"), d.finetuned);
+    $("#empty").classList.add("hidden");
+    $("#results").classList.remove("hidden");
+  } catch (e) {
+    const n = $("#notice");
+    n.textContent = "Could not check the message. " + e.message + " Make sure the server is running: uvicorn app:app --port 8000.";
+    n.style.display = "block";
+  } finally {
+    go.disabled = false; $("#gotext").textContent = "Check message"; panel.classList.remove("busy");
+  }
+}
+
+(async () => {
+  try {
+    const h = await (await fetch("/health")).json();
+    $("#dot").className = "dot ok";
+    $("#status").textContent = (h.adapter_loaded ? "Adapter loaded" : "Adapter not loaded") + " on " + h.device;
+    if (h.device === "cpu") $("#status").title = "Running on CPU, so each check can take a few seconds.";
+    if (!h.adapter_loaded) {
+      const n = $("#notice"); n.style.display = "block";
+      n.textContent = "The fine-tuned adapter was not found, so only the base model is shown. Put the qlora-sms-spam-adapter folder inside backend/ and restart the server.";
+    }
+  } catch (e) {
+    $("#dot").className = "dot bad";
+    $("#status").textContent = "Server not reachable";
+  }
+})();
+</script>
+</body>
+</html>
